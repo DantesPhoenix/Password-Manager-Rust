@@ -1,15 +1,22 @@
 use std::io::{self, Write}; // Import Write for flushing
-use argon2::{Argon2, PasswordHasher, Params, password_hash::{SaltString, rand_core::OsRng}}; // import argon2 for hashing, verification and salting
+use argon2::{Argon2, PasswordHasher, PasswordVerifier, Params, password_hash::{SaltString, rand_core::OsRng, PasswordHash}}; // Import Argon2 for hashing, verification, and salting
 
 fn main() {
     // Store the returned password
     let master_password = get_pass(); 
-
+    
+    // Store the hashed password
     let hashed_brown = hashing_password(&master_password);
-    println!("Your hash brown is ready!: {}", hashed_brown)
+
+    // Verify password
+    if check_password(&hashed_brown) {
+        println!("Password is correct!");
+    } else {
+        println!("Incorrect password!");
+    }
 }
 
-// Defining function to get the master password
+// Function to get the master password
 fn get_pass() -> String {
     let mut password = String::new();
 
@@ -24,19 +31,34 @@ fn get_pass() -> String {
     password.trim().to_string()
 }
 
-//defining function that will hash and return the master password
+// Function to hash the master password
 fn hashing_password(master_password: &str) -> String {
-    //generating salt using OS random generator
+    // Generate salt using OS random generator
     let salt = SaltString::generate(&mut OsRng);
 
-    // Setting parameters for hashing: 64mb memory, 2 core and 4 threads used
+    // Setting parameters for hashing: 64MB memory, 6 iterations, 2 parallelism
     let params = Params::new(65536, 6, 2, None).expect("Invalid Argon2 params"); 
     let argon2 = Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, params);
 
+    //hashign password
     let hashed_password = argon2.hash_password(master_password.as_bytes(), &salt)
-    .expect("Failed to hash password")
-    .to_string();
+        .expect("Failed to hash password")
+        .to_string();
 
-    //return hashed password
-    hashed_password
+    // Return hashed password
+    hashed_password 
+}
+
+// Function to verify password
+fn check_password(hashed_brown: &str) -> bool {
+    // Ask the user to enter the password again
+    let entered_password = get_pass(); // Get password input again
+
+    // Parse the stored hash
+    let parsed_hash = PasswordHash::new(hashed_brown).expect("Invalid hash format");
+
+    // Use Argon2 to verify the password
+    let argon2 = Argon2::default();
+
+    argon2.verify_password(entered_password.as_bytes(), &parsed_hash).is_ok()
 }
